@@ -70,6 +70,8 @@ class AccountService {
     if (config != null) {
       await state.applyConfigMap(config);
       applied = true;
+    } else {
+      await state.resetProgress();
     }
 
     return AuthResult(

@@ -153,20 +153,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 24),
               _sectionHeader(text: "АККАУНТ", colors: colors),
               const SizedBox(height: 12),
-              _actionButton(
-                context: context,
-                label: 'ВОЙТИ / РЕГИСТРАЦИЯ',
-                icon: Icons.person,
-                variant: ThemedActionButtonVariant.blue,
-                onTap: () => SettingsPanel.openAccountDialog(context),
-              ),
-              const SizedBox(height: 12),
-              _actionButton(
-                context: context,
-                label: 'СИНХРОНИЗИРОВАТЬ',
-                icon: Icons.sync,
-                variant: ThemedActionButtonVariant.green,
-                onTap: () => _syncNow(context),
+              StreamBuilder<User?>(
+                stream: FirebaseAuth.instance.authStateChanges(),
+                builder: (context, snapshot) {
+                  final user = snapshot.data;
+                  final signedIn = user != null;
+                  final email = user?.email;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildAccountStatus(
+                        colors: colors,
+                        signedIn: signedIn,
+                        email: email,
+                      ),
+                      if (!signedIn) ...[
+                        const SizedBox(height: 12),
+                        _actionButton(
+                          context: context,
+                          label: 'ВХОД В АККАУНТ',
+                          icon: Icons.person,
+                          variant: ThemedActionButtonVariant.blue,
+                          onTap: () =>
+                              SettingsPanel.openAccountDialog(context),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
 
               const SizedBox(height: 20),
@@ -411,18 +425,125 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _syncNow(BuildContext context) async {
+  Widget _buildAccountStatus({
+    required AppColors colors,
+    required bool signedIn,
+    required String? email,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.panel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  signedIn ? 'ВЫ ВОШЛИ В АККАУНТ' : 'ВОЙДИТЕ В АККАУНТ',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                if (signedIn) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    email ?? 'Email не указан',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (signedIn) ...[
+            const SizedBox(width: 12),
+            Column(
+              children: [
+                SizedBox(
+                  height: 36,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _signOutFromStatus(context),
+                    icon: const Icon(Icons.logout, size: 16),
+                    label: const Text('ВЫЙТИ'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orangeAccent,
+                      side: const BorderSide(color: Colors.orangeAccent),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 32,
+                  child: TextButton(
+                    onPressed: () => _changePasswordFromStatus(
+                      context,
+                      email,
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text(
+                      'СМЕНИТЬ ПАРОЛЬ',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _signOutFromStatus(BuildContext context) async {
     HapticFeedback.lightImpact();
     final account = AccountService();
     final state = context.read<GameState>();
-
     try {
       await account.syncUp(state);
+    } catch (_) {}
+    await account.signOut();
+    await state.resetProgress();
+    if (context.mounted) {
+      _showSnackBar(
+        context,
+        'Вы вышли из аккаунта',
+        Icons.logout,
+      );
+    }
+  }
+
+  Future<void> _changePasswordFromStatus(
+    BuildContext context,
+    String? email,
+  ) async {
+    if (email == null || email.isEmpty) {
+      _showSnackBar(
+        context,
+        'Email не найден',
+        Icons.error_outline,
+      );
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (context.mounted) {
         _showSnackBar(
           context,
-          'Сохранения синхронизированы',
-          Icons.cloud_done,
+          'Ссылка для смены пароля отправлена',
+          Icons.mark_email_read,
         );
       }
     } catch (e) {

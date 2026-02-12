@@ -188,22 +188,48 @@ class SettingsPanel {
                               _sectionHeader(text: "АККАУНТ"),
                               const SizedBox(height: 12),
 
-                              _actionButton(
-                                context: context,
-                                label: 'ВОЙТИ / РЕГИСТРАЦИЯ',
-                                icon: Icons.person,
-                                variant: ThemedActionButtonVariant.blue,
-                                onTap: () => _showAccountDialog(context, state),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              _actionButton(
-                                context: context,
-                                label: 'СИНХРОНИЗИРОВАТЬ',
-                                icon: Icons.sync,
-                                variant: ThemedActionButtonVariant.green,
-                                onTap: () => _syncNow(context, state),
+                              StreamBuilder<User?>(
+                                stream:
+                                    FirebaseAuth.instance.authStateChanges(),
+                                builder: (context, snapshot) {
+                                  final user = snapshot.data;
+                                  final signedIn = user != null;
+                                  final email = user?.email;
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _accountStatusCard(
+                                        signedIn: signedIn,
+                                        email: email,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _actionButton(
+                                        context: context,
+                                        label: signedIn
+                                            ? 'УПРАВЛЕНИЕ АККАУНТОМ'
+                                            : 'ВОЙТИ / АККАУНТ',
+                                        icon: Icons.person,
+                                        variant:
+                                            ThemedActionButtonVariant.blue,
+                                        onTap: () =>
+                                            _showAccountDialog(context, state),
+                                      ),
+                                      if (signedIn) ...[
+                                        const SizedBox(height: 12),
+                                        _actionButton(
+                                          context: context,
+                                          label: 'ВЫЙТИ ИЗ АККАУНТА',
+                                          icon: Icons.logout,
+                                          color: Colors.redAccent,
+                                          onTap: () => _signOutFromPanel(
+                                            context,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                },
                               ),
 
                               const SizedBox(height: 20),
@@ -463,14 +489,71 @@ class SettingsPanel {
     );
   }
 
+  static Widget _accountStatusCard({
+    required bool signedIn,
+    required String? email,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2A34),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            signedIn ? 'Вы вошли в аккаунт' : 'Вы не вошли в аккаунт',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          if (signedIn) ...[
+            const SizedBox(height: 6),
+            Text(
+              email ?? 'Email не указан',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Вход сохраняется на устройстве',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   static Future<void> openAccountDialog(BuildContext context) {
     final state = context.read<GameState>();
     return _showAccountDialog(context, state);
   }
 
-  static Future<void> syncNow(BuildContext context) {
+  static Future<void> _signOutFromPanel(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final account = AccountService();
     final state = context.read<GameState>();
-    return _syncNow(context, state);
+    try {
+      await account.syncUp(state);
+    } catch (_) {}
+    await account.signOut();
+    await state.resetProgress();
+    if (context.mounted) {
+      _showSnackBar(
+        context,
+        'Вы вышли из аккаунта',
+        Icons.logout,
+      );
+    }
   }
 
   static Future<void> _showAccountDialog(
@@ -543,7 +626,32 @@ class SettingsPanel {
       }
     }
 
+    Future<void> handleResetPassword() async {
+      final email = emailController.text.trim();
+      if (email.isEmpty) {
+        errorText = 'Введите email для восстановления';
+        return;
+      }
+      try {
+        errorText = null;
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+        if (context.mounted) {
+          _showSnackBar(
+            context,
+            'Ссылка для восстановления отправлена',
+            Icons.mark_email_read,
+          );
+        }
+      } catch (e) {
+        errorText = _friendlyError(e);
+      }
+    }
+
     Future<void> handleSignOut() async {
+      try {
+        await account.syncUp(state);
+      } catch (_) {}
+      await state.resetProgress();
       await account.signOut();
       if (context.mounted) {
         Navigator.pop(context);
@@ -702,12 +810,26 @@ class SettingsPanel {
                               strokeWidth: 2,
                               valueColor:
                                   AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
+                          ),
+                        )
                         : const Text(
                             'ВОЙТИ',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: isLoading ? null : () => wrap(handleResetPassword),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.orangeAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'ЗАБЫЛИ ПАРОЛЬ?',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -732,30 +854,6 @@ class SettingsPanel {
     );
   }
 
-
-  static Future<void> _syncNow(BuildContext context, GameState state) async {
-    HapticFeedback.lightImpact();
-    final account = AccountService();
-
-    try {
-      await account.syncUp(state);
-      if (context.mounted) {
-        _showSnackBar(
-          context,
-          'Сохранения синхронизированы',
-          Icons.cloud_done,
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        _showSnackBar(
-          context,
-          _friendlyError(e),
-          Icons.error_outline,
-        );
-      }
-    }
-  }
 
   static Widget _inputField({
     required TextEditingController controller,

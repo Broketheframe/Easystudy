@@ -39,10 +39,19 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+            // Безопасное чтение всех свойств:
+            val storeFileProperty = keystoreProperties["storeFile"] as? String
+            val storePasswordProperty = keystoreProperties["storePassword"] as? String
+            val keyPasswordProperty = keystoreProperties["keyPassword"] as? String
+            val keyAliasProperty = keystoreProperties["keyAlias"] as? String
+            
+            // Проверка и установка значений
+            if (storeFileProperty != null) {
+                storeFile = file(storeFileProperty)
+            }
+            storePassword = storePasswordProperty ?: ""
+            keyPassword = keyPasswordProperty ?: ""
+            keyAlias = keyAliasProperty ?: ""
         }
     }
 
