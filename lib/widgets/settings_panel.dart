@@ -168,7 +168,8 @@ class SettingsPanel {
                                 label: 'СБРОСИТЬ ПРОГРЕСС',
                                 icon: Icons.restart_alt,
                                 color: Colors.redAccent,
-                                onTap: () => _confirmResetProgress(context, state),
+                                onTap: () =>
+                                    _confirmResetProgress(context, state),
                               ),
 
                               const SizedBox(height: 12),
@@ -189,11 +190,15 @@ class SettingsPanel {
                               const SizedBox(height: 12),
 
                               StreamBuilder<User?>(
-                                stream:
-                                    FirebaseAuth.instance.authStateChanges(),
+                                stream: FirebaseAuth.instance
+                                    .authStateChanges(),
                                 builder: (context, snapshot) {
                                   final user = snapshot.data;
-                                  final signedIn = user != null;
+                                  final signedIn =
+                                      user != null &&
+                                      !user.isAnonymous &&
+                                      (user.email == null ||
+                                          user.emailVerified);
                                   final email = user?.email;
                                   return Column(
                                     crossAxisAlignment:
@@ -210,8 +215,7 @@ class SettingsPanel {
                                             ? 'УПРАВЛЕНИЕ АККАУНТОМ'
                                             : 'ВОЙТИ / АККАУНТ',
                                         icon: Icons.person,
-                                        variant:
-                                            ThemedActionButtonVariant.blue,
+                                        variant: ThemedActionButtonVariant.blue,
                                         onTap: () =>
                                             _showAccountDialog(context, state),
                                       ),
@@ -222,9 +226,8 @@ class SettingsPanel {
                                           label: 'ВЫЙТИ ИЗ АККАУНТА',
                                           icon: Icons.logout,
                                           color: Colors.redAccent,
-                                          onTap: () => _signOutFromPanel(
-                                            context,
-                                          ),
+                                          onTap: () =>
+                                              _signOutFromPanel(context),
                                         ),
                                       ],
                                     ],
@@ -298,11 +301,7 @@ class SettingsPanel {
                 Flexible(
                   child: Row(
                     children: [
-                      Icon(
-                        icon,
-                        color: const Color(0xFF49C0F7),
-                        size: 22,
-                      ),
+                      Icon(icon, color: const Color(0xFF49C0F7), size: 22),
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(
@@ -375,7 +374,10 @@ class SettingsPanel {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2A3A42),
                   borderRadius: BorderRadius.circular(6),
@@ -471,9 +473,7 @@ class SettingsPanel {
       decoration: BoxDecoration(
         color: const Color(0xFF0A1519),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFF2A3A42),
-        ),
+        border: Border.all(color: const Color(0xFF2A3A42)),
       ),
       child: Column(
         children: [
@@ -548,16 +548,14 @@ class SettingsPanel {
     await account.signOut();
     await state.resetProgress();
     if (context.mounted) {
-      _showSnackBar(
-        context,
-        'Вы вышли из аккаунта',
-        Icons.logout,
-      );
+      _showSnackBar(context, 'Вы вышли из аккаунта', Icons.logout);
     }
   }
 
   static Future<void> _showAccountDialog(
-      BuildContext context, GameState state) async {
+    BuildContext context,
+    GameState state,
+  ) async {
     HapticFeedback.lightImpact();
 
     final emailController = TextEditingController();
@@ -608,16 +606,12 @@ class SettingsPanel {
       }
       try {
         errorText = null;
-        await account.register(
-          state: state,
-          email: email,
-          password: password,
-        );
+        await account.register(state: state, email: email, password: password);
         if (context.mounted) {
           Navigator.pop(context);
           _showSnackBar(
             context,
-            'Регистрация завершена',
+            'Письмо для подтверждения отправлено на email',
             Icons.check_circle,
           );
         }
@@ -655,11 +649,7 @@ class SettingsPanel {
       await account.signOut();
       if (context.mounted) {
         Navigator.pop(context);
-        _showSnackBar(
-          context,
-          'Вы вышли из аккаунта',
-          Icons.logout,
-        );
+        _showSnackBar(context, 'Вы вышли из аккаунта', Icons.logout);
       }
     }
 
@@ -742,8 +732,8 @@ class SettingsPanel {
                             onPressed: isLoading
                                 ? null
                                 : () => setLocalState(
-                                      () => obscurePassword = !obscurePassword,
-                                    ),
+                                    () => obscurePassword = !obscurePassword,
+                                  ),
                             icon: Icon(
                               obscurePassword
                                   ? Icons.visibility_off
@@ -776,8 +766,10 @@ class SettingsPanel {
                   ),
                 ),
               ),
-              actionsPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              actionsPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
               actions: [
                 if (signedIn == true)
                   SizedBox(
@@ -808,10 +800,11 @@ class SettingsPanel {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
                         : const Text(
                             'ВОЙТИ',
                             style: TextStyle(fontWeight: FontWeight.bold),
@@ -821,7 +814,9 @@ class SettingsPanel {
                 SizedBox(
                   width: double.infinity,
                   child: TextButton(
-                    onPressed: isLoading ? null : () => wrap(handleResetPassword),
+                    onPressed: isLoading
+                        ? null
+                        : () => wrap(handleResetPassword),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.orangeAccent,
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -853,7 +848,6 @@ class SettingsPanel {
       },
     );
   }
-
 
   static Widget _inputField({
     required TextEditingController controller,
@@ -897,6 +891,9 @@ class SettingsPanel {
     if (error is AuthRequiredException) {
       return 'Сначала выполните вход';
     }
+    if (error is EmailNotVerifiedException) {
+      return 'Почта не подтверждена. Проверьте email и откройте ссылку из письма';
+    }
     if (error is FirebaseAuthException) {
       switch (error.code) {
         case 'invalid-email':
@@ -925,9 +922,11 @@ class SettingsPanel {
   }
 
   static Future<void> _confirmResetProgress(
-      BuildContext context, GameState state) async {
+    BuildContext context,
+    GameState state,
+  ) async {
     HapticFeedback.lightImpact();
-    
+
     try {
       await AudioManager().ensureInitialized();
       await AudioManager().playTapSound();
@@ -940,9 +939,7 @@ class SettingsPanel {
       barrierDismissible: true,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF131F24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Сбросить прогресс?',
           style: TextStyle(
@@ -953,10 +950,7 @@ class SettingsPanel {
         ),
         content: const Text(
           'Все ваши достижения будут удалены.\nЭто действие нельзя отменить.',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 15,
-          ),
+          style: TextStyle(color: Colors.white70, fontSize: 15),
         ),
         actions: [
           TextButton(
@@ -992,22 +986,18 @@ class SettingsPanel {
       } catch (e) {
         print('Audio error: $e');
       }
-      
+
       await state.resetProgress();
       if (context.mounted) {
         Navigator.pop(context);
-        _showSnackBar(
-          context,
-          'Прогресс сброшен 🧹',
-          Icons.check_circle,
-        );
+        _showSnackBar(context, 'Прогресс сброшен 🧹', Icons.check_circle);
       }
     }
   }
 
   static void _showSupportMessage(BuildContext context) {
     HapticFeedback.lightImpact();
-    
+
     try {
       AudioManager().ensureInitialized().then((_) {
         AudioManager().playTapSound();
@@ -1015,16 +1005,16 @@ class SettingsPanel {
     } catch (e) {
       print('Audio error: $e');
     }
-    
+
     Navigator.pop(context);
-    _showSnackBar(
-      context,
-      'support@eduquiz.app 💬',
-      Icons.email,
-    );
+    _showSnackBar(context, 'support@eduquiz.app 💬', Icons.email);
   }
 
-  static void _showSnackBar(BuildContext context, String message, IconData icon) {
+  static void _showSnackBar(
+    BuildContext context,
+    String message,
+    IconData icon,
+  ) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -1044,9 +1034,7 @@ class SettingsPanel {
         ),
         backgroundColor: const Color(0xFF1899D5),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
     );

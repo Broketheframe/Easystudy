@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -50,6 +51,12 @@ class _HomeScreenState extends State<HomeScreen> {
      ======================= */
 
   void _onPageChanged(int index) {
+    if (index == 2 && !_canOpenAchievements()) {
+      _pageController.jumpToPage(_initialPage);
+      _showAchievementsLockedMessage();
+      return;
+    }
+
     setState(() => _currentPage = index);
     if (_isUserSwipe) {
       AudioManager().playSwipeSound();
@@ -58,11 +65,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _navigateToPage(int index) {
     if (index == _currentPage) return;
+    if (index == 2 && !_canOpenAchievements()) {
+      _showAchievementsLockedMessage();
+      return;
+    }
 
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
+    );
+  }
+
+  bool _canOpenAchievements() {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null &&
+        !user.isAnonymous &&
+        (user.email == null || user.emailVerified);
+  }
+
+  void _showAchievementsLockedMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Достижения доступны только для авторизованного аккаунта',
+        ),
+      ),
     );
   }
 
@@ -126,9 +155,7 @@ class _BottomNavigationBar extends StatelessWidget {
       height: 78,
       decoration: BoxDecoration(
         color: colors.background,
-        border: Border(
-          top: BorderSide(color: colors.track, width: 1.5),
-        ),
+        border: Border(top: BorderSide(color: colors.track, width: 1.5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.5),

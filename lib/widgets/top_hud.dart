@@ -21,6 +21,7 @@ class _TopHUDState extends State<TopHUD> {
     final state = context.watch<GameState>();
     final colors = AppColors.of(context);
     final double widgetHeight = 40.0;
+    final double hitBoxSize = 56.0;
     final Color switchColor = colors.accent;
     final Color backgroundColor = colors.background;
 
@@ -68,35 +69,39 @@ class _TopHUDState extends State<TopHUD> {
 
                     // Предмет (с разворачиваемым меню)
                     GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () async {
                         if (_isMenuOpen) return;
                         setState(() => _isMenuOpen = true);
-                        await SubjectMenu.show(
-                          context,
-                          hudContext: hudContext,
-                        );
+                        await SubjectMenu.show(context, hudContext: hudContext);
                         if (!mounted) return;
                         setState(() => _isMenuOpen = false);
                       },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: widgetHeight,
-                            height: widgetHeight,
-                            child: Image.asset(
-                              'assets/images/software-application.png',
-                            ),
+                      child: SizedBox(
+                        height: hitBoxSize,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: widgetHeight,
+                                height: widgetHeight,
+                                child: Image.asset(
+                                  'assets/images/software-application.png',
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                _isMenuOpen
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: colors.textPrimary,
+                                size: 22,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            _isMenuOpen
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            color: colors.textPrimary,
-                            size: 22,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
 
@@ -123,19 +128,22 @@ class _TopHUDState extends State<TopHUD> {
 
                     // Настройки (открытие отдельного экрана)
                     SizedBox(
-                      width: widgetHeight,
-                      height: widgetHeight,
+                      width: hitBoxSize,
+                      height: hitBoxSize,
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const SettingsScreen(),
                           ),
                         ),
-                        child: Icon(
-                          Icons.settings,
-                          color: Colors.orangeAccent,
-                          size: widgetHeight,
+                        child: Center(
+                          child: Icon(
+                            Icons.settings,
+                            color: Colors.orangeAccent,
+                            size: widgetHeight,
+                          ),
                         ),
                       ),
                     ),

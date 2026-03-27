@@ -4,11 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'game_state.dart';
 
 class AccountService {
-  AccountService({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-  })  : _auth = auth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+  AccountService({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -16,7 +14,11 @@ class AccountService {
   static const String _usersCollection = 'users';
 
   Future<bool> isSignedIn() async {
-    return _auth.currentUser != null;
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    if (user.isAnonymous) return false;
+    if (user.email != null && !user.emailVerified) return false;
+    return true;
   }
 
   Future<void> signOut() async {
@@ -40,12 +42,11 @@ class AccountService {
       );
     }
 
+    await user.sendEmailVerification();
     await _saveConfig(user.uid, state.toConfigMap());
+    await _auth.signOut();
 
-    return AuthResult(
-      token: user.uid,
-      configApplied: false,
-    );
+    return AuthResult(token: user.uid, configApplied: false);
   }
 
   Future<AuthResult> login({
@@ -65,8 +66,15 @@ class AccountService {
       );
     }
 
+    await user.reload();
+    final refreshedUser = _auth.currentUser;
+    if (refreshedUser == null || !refreshedUser.emailVerified) {
+      await _auth.signOut();
+      throw const EmailNotVerifiedException();
+    }
+
     bool applied = false;
-    final config = await _loadConfig(user.uid);
+    final config = await _loadConfig(refreshedUser.uid);
     if (config != null) {
       await state.applyConfigMap(config);
       applied = true;
@@ -74,10 +82,7 @@ class AccountService {
       await state.resetProgress();
     }
 
-    return AuthResult(
-      token: user.uid,
-      configApplied: applied,
-    );
+    return AuthResult(token: user.uid, configApplied: applied);
   }
 
   Future<void> syncUp(GameState state) async {
@@ -109,14 +114,11 @@ class AccountService {
   }
 
   Future<void> _saveConfig(String uid, Map<String, dynamic> config) async {
-    await _firestore.collection(_usersCollection).doc(uid).set(
-      {
-        'config': config,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'version': 1,
-      },
-      SetOptions(merge: true),
-    );
+    await _firestore.collection(_usersCollection).doc(uid).set({
+      'config': config,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'version': 1,
+    }, SetOptions(merge: true));
   }
 }
 
@@ -129,4 +131,8 @@ class AuthResult {
 
 class AuthRequiredException implements Exception {
   const AuthRequiredException();
+}
+
+class EmailNotVerifiedException implements Exception {
+  const EmailNotVerifiedException();
 }

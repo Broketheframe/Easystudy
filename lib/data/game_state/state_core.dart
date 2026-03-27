@@ -1,11 +1,14 @@
 part of '../game_state.dart';
 
-class GameState extends ChangeNotifier {
+class GameState extends ChangeNotifier with WidgetsBindingObserver {
   // === Константы для работы с памятью ===
   static const String _firstLaunchKey = 'first_launch';
   static const String _ticketsProgressKey = 'ticketsProgress';
   static const String _currentSubjectKey = 'currentSubject';
+  static const String _totalPlaySecondsKey = 'totalPlaySeconds';
   static const List<String> _subjectKeys = ['chemistry', 'math', 'history'];
+  static const Duration _saveDebounceDelay = Duration(seconds: 2);
+  static const Duration _periodicSaveInterval = Duration(minutes: 5);
 
   // === Общие настройки ===
   bool _soundEnabled;
@@ -17,6 +20,7 @@ class GameState extends ChangeNotifier {
   int _playerLevel;
   int _currentXP;
   int _coins;
+  int _totalPlaySeconds;
 
   // === Прогресс по предметам ===
   Subject _currentSubject;
@@ -43,6 +47,14 @@ class GameState extends ChangeNotifier {
   // === Ник игрока ===
   String _nickname;
 
+  // === Сохранение ===
+  Timer? _saveDebounceTimer;
+  Timer? _periodicSaveTimer;
+  Future<void>? _activeSaveOperation;
+  bool _hasPendingSave = false;
+  bool _isDisposed = false;
+  DateTime? _playSessionStartedAt;
+
   // ============ ПУБЛИЧНЫЕ ГЕТТЕРЫ ============
 
   // Основные настройки
@@ -54,6 +66,7 @@ class GameState extends ChangeNotifier {
   int get playerLevel => _playerLevel;
   int get currentXP => _currentXP;
   int get coins => _coins;
+  int get totalPlayMinutes => _totalPlaySeconds ~/ 60;
   Subject get currentSubject => _currentSubject;
   String get nickname => _nickname;
 
@@ -101,6 +114,7 @@ class GameState extends ChangeNotifier {
     int playerLevel = 1,
     int currentXP = 0,
     int coins = 0,
+    int totalPlaySeconds = 0,
     Subject currentSubject = Subject.chemistry,
     Map<Subject, int>? currentLevels,
     Map<Subject, Set<int>>? completedLevels,
@@ -114,41 +128,45 @@ class GameState extends ChangeNotifier {
     Set<int>? collectedAchievements,
     String nickname = 'Player',
     Map<String, TicketProgress>? ticketsProgress,
-  })  : _soundEnabled = soundEnabled,
-        _musicEnabled = musicEnabled,
-        _vibrationEnabled = vibrationEnabled,
-        _musicVolume = musicVolume,
-        _themeMode = themeMode,
-        _playerLevel = playerLevel,
-        _currentXP = currentXP,
-        _coins = coins,
-        _currentSubject = currentSubject,
-        _currentLevels = currentLevels ?? {
-          Subject.chemistry: 1,
-          Subject.math: 1,
-          Subject.history: 1,
-        },
-        _completedLevels = completedLevels ?? {
-          Subject.chemistry: <int>{},
-          Subject.math: <int>{},
-          Subject.history: <int>{},
-        },
-        _unlockedTickets = unlockedTickets ?? {
-          Subject.chemistry: <int>{1},
-          Subject.math: <int>{1},
-          Subject.history: <int>{1},
-        },
-        _ownedBackgrounds =
-            ownedBackgrounds ?? {'blue', 'green', 'purple', 'orange'},
-        _selectedBackground = selectedBackground,
-        _ownedFrames = ownedFrames ?? {'default'},
-        _selectedFrame = selectedFrame,
-        _ownedAvatars = ownedAvatars ?? {'default'},
-        _selectedAvatar = selectedAvatar,
-        _collectedAchievements = collectedAchievements ?? <int>{},
-        _nickname = nickname,
-        _ticketsProgress = ticketsProgress ?? {} {
+  }) : _soundEnabled = soundEnabled,
+       _musicEnabled = musicEnabled,
+       _vibrationEnabled = vibrationEnabled,
+       _musicVolume = musicVolume,
+       _themeMode = themeMode,
+       _playerLevel = playerLevel,
+       _currentXP = currentXP,
+       _coins = coins,
+       _totalPlaySeconds = totalPlaySeconds < 0 ? 0 : totalPlaySeconds,
+       _currentSubject = currentSubject,
+       _currentLevels =
+           currentLevels ??
+           {Subject.chemistry: 1, Subject.math: 1, Subject.history: 1},
+       _completedLevels =
+           completedLevels ??
+           {
+             Subject.chemistry: <int>{},
+             Subject.math: <int>{},
+             Subject.history: <int>{},
+           },
+       _unlockedTickets =
+           unlockedTickets ??
+           {
+             Subject.chemistry: <int>{1},
+             Subject.math: <int>{1},
+             Subject.history: <int>{1},
+           },
+       _ownedBackgrounds =
+           ownedBackgrounds ?? {'blue', 'green', 'purple', 'orange'},
+       _selectedBackground = selectedBackground,
+       _ownedFrames = ownedFrames ?? {'default'},
+       _selectedFrame = selectedFrame,
+       _ownedAvatars = ownedAvatars ?? {'default'},
+       _selectedAvatar = selectedAvatar,
+       _collectedAchievements = collectedAchievements ?? <int>{},
+       _nickname = nickname,
+       _ticketsProgress = ticketsProgress ?? {} {
     _initializeAudio();
+    _setupAutoSave();
   }
 
   // === Статические методы для проверки первого запуска ===
@@ -214,8 +232,9 @@ class GameState extends ChangeNotifier {
 
     final subjectName = prefs.getString(_currentSubjectKey) ?? 'chemistry';
     final subjectIndex = _subjectKeys.indexOf(subjectName);
-    final subject =
-        subjectIndex != -1 ? Subject.values[subjectIndex] : Subject.chemistry;
+    final subject = subjectIndex != -1
+        ? Subject.values[subjectIndex]
+        : Subject.chemistry;
 
     return GameState(
       soundEnabled: prefs.getBool('soundEnabled') ?? true,
@@ -224,9 +243,7 @@ class GameState extends ChangeNotifier {
       musicVolume: prefs.getDouble('musicVolume') ?? 0.7,
       themeMode: () {
         final saved = prefs.getInt('themeMode');
-        if (saved == null ||
-            saved < 0 ||
-            saved >= AppThemeMode.values.length) {
+        if (saved == null || saved < 0 || saved >= AppThemeMode.values.length) {
           return AppThemeMode.system;
         }
         return AppThemeMode.values[saved];
@@ -234,6 +251,7 @@ class GameState extends ChangeNotifier {
       playerLevel: prefs.getInt('playerLevel') ?? 1,
       currentXP: prefs.getInt('currentXP') ?? 0,
       coins: prefs.getInt('coins') ?? 0,
+      totalPlaySeconds: prefs.getInt(_totalPlaySecondsKey) ?? 0,
       currentSubject: subject,
       currentLevels: loadLevels(),
       completedLevels: loadCompleted(),
@@ -245,7 +263,8 @@ class GameState extends ChangeNotifier {
       selectedBackground: prefs.getString('selectedBackground') ?? 'blue',
       ownedFrames: (prefs.getStringList('ownedFrames') ?? ['default']).toSet(),
       selectedFrame: prefs.getString('selectedFrame') ?? 'default',
-      ownedAvatars: (prefs.getStringList('ownedAvatars') ?? ['default']).toSet(),
+      ownedAvatars: (prefs.getStringList('ownedAvatars') ?? ['default'])
+          .toSet(),
       selectedAvatar: prefs.getString('selectedAvatar') ?? 'default',
       collectedAchievements:
           (prefs.getStringList('collectedAchievements') ?? [])
@@ -277,13 +296,117 @@ class GameState extends ChangeNotifier {
     return (level - 1) * 5 + 1;
   }
 
+  void _setupAutoSave() {
+    WidgetsBinding.instance.addObserver(this);
+    _startPlaySession();
+    _periodicSaveTimer = Timer.periodic(_periodicSaveInterval, (_) {
+      _commitPlaySession(keepRunning: true);
+      unawaited(_persistIfNeeded());
+    });
+  }
+
+  void _startPlaySession() {
+    if (_isDisposed) return;
+    _playSessionStartedAt ??= DateTime.now().toUtc();
+  }
+
+  void _commitPlaySession({bool keepRunning = false}) {
+    final startedAt = _playSessionStartedAt;
+    if (startedAt == null) return;
+
+    final now = DateTime.now().toUtc();
+    final deltaSeconds = now.difference(startedAt).inSeconds;
+
+    if (keepRunning) {
+      _playSessionStartedAt = now;
+    } else {
+      _playSessionStartedAt = null;
+    }
+
+    if (deltaSeconds <= 0) return;
+
+    final previousMinutes = _totalPlaySeconds ~/ 60;
+    _totalPlaySeconds += deltaSeconds;
+    _markNeedsSave();
+
+    if ((_totalPlaySeconds ~/ 60) != previousMinutes) {
+      notifyListeners();
+    }
+  }
+
+  void _markNeedsSave() {
+    if (_isDisposed) return;
+    _hasPendingSave = true;
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(_saveDebounceDelay, () {
+      unawaited(_persistIfNeeded());
+    });
+  }
+
+  Future<void> _persistIfNeeded({
+    bool force = false,
+    bool throwOnError = false,
+  }) async {
+    if (_isDisposed) return;
+    if (!force && !_hasPendingSave) return;
+
+    if (_activeSaveOperation != null) {
+      await _activeSaveOperation;
+      if (!force && !_hasPendingSave) return;
+    }
+
+    _hasPendingSave = false;
+    final saveOperation = _writeToPrefs();
+    _activeSaveOperation = saveOperation;
+
+    try {
+      await saveOperation;
+    } catch (e) {
+      _hasPendingSave = true;
+      if (kDebugMode) {
+        print('Save failed: $e');
+      }
+      if (throwOnError) {
+        rethrow;
+      }
+    } finally {
+      if (identical(_activeSaveOperation, saveOperation)) {
+        _activeSaveOperation = null;
+      }
+    }
+  }
+
   void _saveAndNotify() {
-    save();
+    _markNeedsSave();
     notifyListeners();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _commitPlaySession();
+        _saveDebounceTimer?.cancel();
+        unawaited(_persistIfNeeded(force: true));
+        break;
+      case AppLifecycleState.resumed:
+        _startPlaySession();
+        unawaited(_persistIfNeeded(force: true));
+        break;
+    }
+  }
+
+  @override
   void dispose() {
+    _commitPlaySession();
+    _saveDebounceTimer?.cancel();
+    _periodicSaveTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_persistIfNeeded(force: true));
+    _isDisposed = true;
     AudioManager().dispose();
     super.dispose();
   }

@@ -13,12 +13,14 @@ extension GameStateConfig on GameState {
       'playerLevel': _playerLevel,
       'currentXP': _currentXP,
       'coins': _coins,
+      'totalPlaySeconds': _totalPlaySeconds,
       'currentSubject': _currentSubject.name,
       'currentLevels': _mapSubjectInt(_currentLevels),
       'completedLevels': _mapSubjectSet(_completedLevels),
       'unlockedTickets': _mapSubjectSet(_unlockedTickets),
-      'ticketsProgress':
-          _ticketsProgress.values.map((t) => t.serialize()).toList(),
+      'ticketsProgress': _ticketsProgress.values
+          .map((t) => t.serialize())
+          .toList(),
       'ownedBackgrounds': _ownedBackgrounds.toList(),
       'selectedBackground': _selectedBackground,
       'ownedFrames': _ownedFrames.toList(),
@@ -91,6 +93,12 @@ extension GameStateConfig on GameState {
       changed = true;
     }
 
+    final totalPlaySeconds = read<int>('totalPlaySeconds');
+    if (totalPlaySeconds != null) {
+      _totalPlaySeconds = totalPlaySeconds < 0 ? 0 : totalPlaySeconds;
+      changed = true;
+    }
+
     final subjectName = read<String>('currentSubject');
     if (subjectName != null) {
       final next = Subject.values.firstWhere(
@@ -133,9 +141,9 @@ extension GameStateConfig on GameState {
           try {
             final ticket = TicketProgress.deserialize(item);
             parsed[GameState._getTicketKeyStatic(
-              ticket.subject,
-              ticket.ticketNumber,
-            )] =
+                  ticket.subject,
+                  ticket.ticketNumber,
+                )] =
                 ticket;
           } catch (_) {}
         }
@@ -217,17 +225,11 @@ extension GameStateConfig on GameState {
     }
   }
 
-  static Map<String, dynamic> _mapSubjectInt(
-    Map<Subject, int> source,
-  ) {
-    return {
-      for (final entry in source.entries) entry.key.name: entry.value,
-    };
+  static Map<String, dynamic> _mapSubjectInt(Map<Subject, int> source) {
+    return {for (final entry in source.entries) entry.key.name: entry.value};
   }
 
-  static Map<String, List<int>> _mapSubjectSet(
-    Map<Subject, Set<int>> source,
-  ) {
+  static Map<String, List<int>> _mapSubjectSet(Map<Subject, Set<int>> source) {
     return {
       for (final entry in source.entries) entry.key.name: entry.value.toList(),
     };

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -62,7 +64,6 @@ class _MapScreenState extends State<MapScreen>
 
     _xpAnimation = const AlwaysStoppedAnimation(0);
   }
-
 
   @override
   void dispose() {
@@ -266,9 +267,35 @@ class _MapScreenState extends State<MapScreen>
     final prefs = await SharedPreferences.getInstance();
     final alreadyShown = prefs.getBool(_accountPromptShownKey) ?? false;
     if (alreadyShown) return;
+
+    final isSignedIn = await _isUserSignedInReliably();
+    if (isSignedIn) {
+      await prefs.setBool(_accountPromptShownKey, true);
+      return;
+    }
+
     await prefs.setBool(_accountPromptShownKey, true);
     if (!context.mounted) return;
     await _showAccountPromptDialog(context);
+  }
+
+  Future<bool> _isUserSignedInReliably() async {
+    final auth = FirebaseAuth.instance;
+
+    final immediateUser = auth.currentUser;
+    if (immediateUser != null && !immediateUser.isAnonymous) {
+      return true;
+    }
+
+    try {
+      final streamUser = await auth.authStateChanges().first.timeout(
+        const Duration(seconds: 3),
+      );
+      return streamUser != null && !streamUser.isAnonymous;
+    } on TimeoutException {
+      final fallbackUser = auth.currentUser;
+      return fallbackUser != null && !fallbackUser.isAnonymous;
+    }
   }
 
   Future<void> _showAccountPromptDialog(BuildContext context) async {
@@ -292,10 +319,7 @@ class _MapScreenState extends State<MapScreen>
           ),
           content: const Text(
             'Создайте аккаунт, чтобы продолжать с любого устройства.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 15,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 15),
           ),
           actions: [
             TextButton(
@@ -360,8 +384,7 @@ class LevelNode extends StatefulWidget {
   State<LevelNode> createState() => _LevelNodeState();
 }
 
-class _LevelNodeState extends State<LevelNode>
-    with TickerProviderStateMixin {
+class _LevelNodeState extends State<LevelNode> with TickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
   late final AnimationController _pulseController;
@@ -449,10 +472,7 @@ class _LevelNodeState extends State<LevelNode>
           final dot = Container(
             width: dotSize,
             height: dotSize,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           );
 
           if (widget.pulseIndex == index) {
@@ -460,10 +480,7 @@ class _LevelNodeState extends State<LevelNode>
               animation: _pulseController,
               builder: (_, __) => Opacity(
                 opacity: _pulseOpacity.value,
-                child: Transform.scale(
-                  scale: _pulseScale.value,
-                  child: dot,
-                ),
+                child: Transform.scale(scale: _pulseScale.value, child: dot),
               ),
             );
           }

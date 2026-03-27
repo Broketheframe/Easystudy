@@ -20,6 +20,8 @@ extension GameStateReset on GameState {
       _playerLevel = 1;
       _currentXP = 0;
       _coins = 0;
+      _totalPlaySeconds = 0;
+      _playSessionStartedAt = DateTime.now().toUtc();
       _ownedBackgrounds.clear();
       _ownedBackgrounds.addAll({'blue', 'green', 'purple', 'orange'});
       _selectedBackground = 'blue';

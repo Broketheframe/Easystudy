@@ -61,10 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            color: colors.border,
-            height: 1.0,
-          ),
+          child: Container(color: colors.border, height: 1.0),
         ),
       ),
       body: SafeArea(
@@ -157,7 +154,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 stream: FirebaseAuth.instance.authStateChanges(),
                 builder: (context, snapshot) {
                   final user = snapshot.data;
-                  final signedIn = user != null;
+                  final signedIn =
+                      user != null &&
+                      !user.isAnonymous &&
+                      (user.email == null || user.emailVerified);
                   final email = user?.email;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -174,8 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: 'ВХОД В АККАУНТ',
                           icon: Icons.person,
                           variant: ThemedActionButtonVariant.blue,
-                          onTap: () =>
-                              SettingsPanel.openAccountDialog(context),
+                          onTap: () => SettingsPanel.openAccountDialog(context),
                         ),
                       ],
                     ],
@@ -218,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final Color activeColor = colors.accent;
     final Color inactiveColor = colors.border;
     final Color thumbColor = colors.panel;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -247,33 +246,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 26, // Уменьшил высоту (было 32)
                     decoration: BoxDecoration(
                       color: value ? activeColor : inactiveColor,
-                      borderRadius: BorderRadius.circular(13), // Соответственно уменьшил скругление
+                      borderRadius: BorderRadius.circular(
+                        13,
+                      ), // Соответственно уменьшил скругление
                     ),
                   ),
-                  
+
                   // Подвижный квадратик - тоже уменьшил немного
                   AnimatedAlign(
                     duration: const Duration(milliseconds: 200),
-                    alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment: value
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
                     child: Container(
                       width: 34, // Уменьшил размер квадратика (было 40)
                       height: 34, // Уменьшил размер квадратика (было 40)
-                    decoration: BoxDecoration(
-                      color: thumbColor,
-                      borderRadius: BorderRadius.circular(6), // Чуть меньше скругление
-                      border: Border.all(
-                        color: value ? activeColor : inactiveColor,
-                        width: 1.5, // Немного тоньше обводка
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 3,
-                          offset: const Offset(0, 1.5),
+                      decoration: BoxDecoration(
+                        color: thumbColor,
+                        borderRadius: BorderRadius.circular(
+                          6,
+                        ), // Чуть меньше скругление
+                        border: Border.all(
+                          color: value ? activeColor : inactiveColor,
+                          width: 1.5, // Немного тоньше обводка
                         ),
-                      ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1.5),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 ],
               ),
@@ -327,11 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ThemedActionButtonVariant variant = ThemedActionButtonVariant.custom,
   }) {
     if (variant == ThemedActionButtonVariant.blue) {
-      return ThemedBlueButton(
-        label: label,
-        icon: icon,
-        onTap: onTap,
-      );
+      return ThemedBlueButton(label: label, icon: icon, onTap: onTap);
     }
 
     return ThemedActionButton(
@@ -345,7 +346,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   static Color _blueButtonTextColor(BuildContext context, Color buttonColor) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isBlue = buttonColor.value == 0xFF49C0F7 ||
+    final isBlue =
+        buttonColor.value == 0xFF49C0F7 ||
         buttonColor.value == 0xFF29B6F6 ||
         buttonColor.value == AppTheme.darkAccent.value;
     if (isDark && isBlue) {
@@ -353,7 +355,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     return Colors.white;
   }
-
 
   static Widget _buildVersionInfo(AppColors colors) {
     return Container(
@@ -365,10 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: Text(
         'EasyStudy v1.0.0',
-        style: TextStyle(
-          fontSize: 11,
-          color: colors.textSecondary,
-        ),
+        style: TextStyle(fontSize: 11, color: colors.textSecondary),
         textAlign: TextAlign.center,
       ),
     );
@@ -382,8 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }) {
     Widget buildOption(AppThemeMode mode, String label) {
       final bool isSelected = current == mode;
-      final Color selectedText =
-          _blueButtonTextColor(context, colors.accent);
+      final Color selectedText = _blueButtonTextColor(context, colors.accent);
       return Expanded(
         child: GestureDetector(
           onTap: () => onChanged(mode),
@@ -455,10 +452,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 6),
                   Text(
                     email ?? 'Email не указан',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 12, color: colors.textSecondary),
                   ),
                 ],
               ],
@@ -485,10 +479,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SizedBox(
                   height: 32,
                   child: TextButton(
-                    onPressed: () => _changePasswordFromStatus(
-                      context,
-                      email,
-                    ),
+                    onPressed: () => _changePasswordFromStatus(context, email),
                     style: TextButton.styleFrom(
                       foregroundColor: colors.textSecondary,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -517,11 +508,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await account.signOut();
     await state.resetProgress();
     if (context.mounted) {
-      _showSnackBar(
-        context,
-        'Вы вышли из аккаунта',
-        Icons.logout,
-      );
+      _showSnackBar(context, 'Вы вышли из аккаунта', Icons.logout);
     }
   }
 
@@ -530,11 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String? email,
   ) async {
     if (email == null || email.isEmpty) {
-      _showSnackBar(
-        context,
-        'Email не найден',
-        Icons.error_outline,
-      );
+      _showSnackBar(context, 'Email не найден', Icons.error_outline);
       return;
     }
     try {
@@ -548,11 +531,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (context.mounted) {
-        _showSnackBar(
-          context,
-          _friendlyError(e),
-          Icons.error_outline,
-        );
+        _showSnackBar(context, _friendlyError(e), Icons.error_outline);
       }
     }
   }
@@ -577,9 +556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         backgroundColor: const Color(0xFF1899D5),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
     );

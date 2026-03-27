@@ -3,6 +3,12 @@ part of '../game_state.dart';
 extension GameStateStorage on GameState {
   // === Сохранение ===
   Future<void> save() async {
+    _markNeedsSave();
+    _saveDebounceTimer?.cancel();
+    await _persistIfNeeded(force: true, throwOnError: true);
+  }
+
+  Future<void> _writeToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
 
     // Основные настройки
@@ -14,6 +20,7 @@ extension GameStateStorage on GameState {
     await prefs.setInt('playerLevel', _playerLevel);
     await prefs.setInt('currentXP', _currentXP);
     await prefs.setInt('coins', _coins);
+    await prefs.setInt(GameState._totalPlaySecondsKey, _totalPlaySeconds);
     await prefs.setString(GameState._currentSubjectKey, _currentSubject.name);
 
     // Прогресс по предметам
