@@ -79,7 +79,7 @@ class AccountService {
       await state.applyConfigMap(config);
       applied = true;
     } else {
-      await state.resetProgress();
+      await _saveConfig(refreshedUser.uid, state.toConfigMap());
     }
 
     return AuthResult(token: user.uid, configApplied: applied);

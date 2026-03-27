@@ -162,106 +162,113 @@ class AchievementsScreen extends StatelessWidget {
         (user.email == null || user.emailVerified);
   }
 
-  Widget _buildLockedState(BuildContext context, AppColors colors) {
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  size: 64,
-                  color: colors.accent,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Достижения недоступны',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'ClashRoyale',
-                    fontSize: 22,
-                    color: colors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Войдите в аккаунт и подтвердите почту, чтобы открыть достижения.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'ClashRoyale',
-                    fontSize: 12,
-                    color: colors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final gameState = context.watch<GameState>();
+    final achievements = _buildAchievements(gameState);
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       initialData: FirebaseAuth.instance.currentUser,
       builder: (context, snapshot) {
-        if (!_isSignedIn(snapshot.data)) {
-          return _buildLockedState(context, colors);
-        }
-
-        final gameState = context.watch<GameState>();
-        final achievements = _buildAchievements(gameState);
+        final locked = !_isSignedIn(snapshot.data);
 
         return Scaffold(
           backgroundColor: colors.background,
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    'Достижения',
-                    style: TextStyle(
-                      fontFamily: 'ClashRoyale',
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: colors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: achievements.length,
-                      itemBuilder: (context, index) {
-                        final achievement = achievements[index];
-                        final collected = gameState.isAchievementCollected(
-                          index,
-                        );
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Достижения',
+                        style: TextStyle(
+                          fontFamily: 'ClashRoyale',
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: achievements.length,
+                          itemBuilder: (context, index) {
+                            final achievement = achievements[index];
+                            final collected = gameState.isAchievementCollected(
+                              index,
+                            );
 
-                        return AchievementCard(
-                          achievement: achievement,
-                          collected: collected,
-                          onCollect: achievement.isCompleted && !collected
-                              ? () => _collectReward(
-                                  context: context,
-                                  gameState: gameState,
-                                  index: index,
-                                  reward: achievement.reward,
-                                )
-                              : null,
-                        );
-                      },
+                            return AchievementCard(
+                              achievement: achievement,
+                              collected: collected,
+                              onCollect: locked
+                                  ? null
+                                  : achievement.isCompleted && !collected
+                                  ? () => _collectReward(
+                                      context: context,
+                                      gameState: gameState,
+                                      index: index,
+                                      reward: achievement.reward,
+                                    )
+                                  : null,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (locked) Container(color: Colors.black54),
+                if (locked)
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 24,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF131F24),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.track, width: 2),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 64,
+                            color: colors.accent,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Нужно авторизоваться',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'ClashRoyale',
+                              fontSize: 20,
+                              color: colors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Войдите в аккаунт и подтвердите почту, чтобы открыть достижения.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'ClashRoyale',
+                              fontSize: 12,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
         );

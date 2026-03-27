@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'data/account_sync_service.dart';
 import 'data/game_state.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
@@ -12,19 +13,16 @@ final ValueNotifier<String> currentBackground = ValueNotifier<String>('blue');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Загружаем GameState и проверяем первый запуск
   final gameState = await GameState.load();
   final firstLaunch = await GameState.isFirstLaunch();
+  AccountSyncService(state: gameState).start();
 
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider<GameState>.value(value: gameState),
-      ],
+      providers: [ChangeNotifierProvider<GameState>.value(value: gameState)],
       child: MyApp(showWelcomeScreen: firstLaunch),
     ),
   );
