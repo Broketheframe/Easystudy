@@ -234,20 +234,150 @@ class _MapScreenState extends State<MapScreen>
           pulseIndex: pulseIndex,
           onTap: () async {
             if (isLocked) return;
-
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => QuizScreen(ticketId: level)),
-            );
-
-            if (result == true) {
-              state.completeLevel(level);
-              state.addXP(50);
-            }
+            await _openTicketFlow(state: state, level: level);
           },
         ),
       );
     });
+  }
+
+  Future<void> _openTicketFlow({
+    required GameState state,
+    required int level,
+  }) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => QuizScreen(ticketId: level)),
+    );
+
+    if (!mounted) return;
+
+    if (result == true) {
+      state.completeLevel(level);
+      return;
+    }
+
+    if (result is! Map<String, dynamic>) return;
+
+    final completedTicket = _asInt(result['completedTicket']);
+    final nextTicket = _asInt(result['nextTicket']);
+
+    if (completedTicket == null || nextTicket == null) return;
+
+    if (nextTicket > _totalLevels) return;
+
+    final bool goToNext = await _showNextTicketUnlockedDialog(
+      completedTicket: completedTicket,
+      nextTicket: nextTicket,
+    );
+
+    if (goToNext && mounted) {
+      await _openTicketFlow(state: state, level: nextTicket);
+    }
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  Future<bool> _showNextTicketUnlockedDialog({
+    required int completedTicket,
+    required int nextTicket,
+  }) async {
+    final colors = AppColors.of(context);
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF131F24),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.track, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.emoji_events_rounded,
+                  size: 64,
+                  color: colors.accent,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Билет пройден',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'ClashRoyale',
+                    fontSize: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Билет $completedTicket завершен.\nБилет $nextTicket уже открыт.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'ClashRoyale',
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: Colors.white24),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'ПОЗЖЕ',
+                          style: TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          'К БИЛЕТУ $nextTicket',
+                          style: const TextStyle(
+                            fontFamily: 'ClashRoyale',
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    return result ?? false;
   }
 
   void _scheduleAccountPrompt(GameState state) {

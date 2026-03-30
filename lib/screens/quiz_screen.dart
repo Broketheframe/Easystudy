@@ -87,8 +87,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       correctAnswers = ticketProgress.answeredQuestions.values
           .where((v) => v == true) // Только правильные ответы
           .length;
-      lastSubquestionIndex =
-          _firstPendingIndex(ticketProgress, totalSubquestions);
+      lastSubquestionIndex = _firstPendingIndex(
+        ticketProgress,
+        totalSubquestions,
+      );
     } else {
       correctAnswers = 0;
       lastSubquestionIndex = 0;
@@ -131,8 +133,10 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
             .where((v) => v == true)
             .length ??
         0;
-    final currentLastIndex =
-        _firstPendingIndex(ticketProgress, totalSubquestions);
+    final currentLastIndex = _firstPendingIndex(
+      ticketProgress,
+      totalSubquestions,
+    );
 
     final result = await Navigator.push(
       context,
@@ -175,19 +179,18 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         final bool isTicketCompleted = correctAnswers == totalSubquestions;
 
         if (isTicketCompleted) {
-          gameState.finishTicket(
+          final bool didFinishNow = gameState.finishTicket(
             subject: subject,
             ticketNumber: widget.ticketId,
             totalQuestions: totalSubquestions,
           );
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Уровень ${widget.ticketId + 1} открыт! 🎉'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          if (didFinishNow && mounted) {
+            Navigator.pop(context, {
+              'completedTicket': widget.ticketId,
+              'nextTicket': widget.ticketId + 1,
+            });
+          }
         }
       });
     }
@@ -240,10 +243,12 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
     final gameState = context.read<GameState>();
     final isUnlocked = widget.ticketId <= gameState.currentLevel;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final greenColor =
-        isDark ? const Color(0xFF92D333) : const Color(0xFF59CB0B);
-    final greenLineColor =
-        isDark ? const Color(0xFF729462) : const Color(0xFF6F9A4A);
+    final greenColor = isDark
+        ? const Color(0xFF92D333)
+        : const Color(0xFF59CB0B);
+    final greenLineColor = isDark
+        ? const Color(0xFF729462)
+        : const Color(0xFF6F9A4A);
     final textColor = isUnlocked
         ? (isDark ? const Color(0xFF101E27) : Colors.white)
         : colors.textSecondary;
@@ -257,8 +262,9 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       onTapUp: isUnlocked
           ? (_) => setState(() => _isActionPressed = false)
           : null,
-      onTapCancel:
-          isUnlocked ? () => setState(() => _isActionPressed = false) : null,
+      onTapCancel: isUnlocked
+          ? () => setState(() => _isActionPressed = false)
+          : null,
       onTap: isUnlocked ? _startLearning : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
@@ -269,12 +275,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           color: isUnlocked ? greenColor : Colors.grey,
           borderRadius: BorderRadius.circular(14),
           border: showLine
-              ? Border(
-                  bottom: BorderSide(
-                    color: greenLineColor,
-                    width: 4,
-                  ),
-                )
+              ? Border(bottom: BorderSide(color: greenLineColor, width: 4))
               : null,
         ),
         alignment: Alignment.center,
@@ -321,9 +322,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
         ),
       ),
       body: ticketData == null
-          ? Center(
-              child: CircularProgressIndicator(color: colors.textPrimary),
-            )
+          ? Center(child: CircularProgressIndicator(color: colors.textPrimary))
           : Stack(
               children: [
                 SingleChildScrollView(
