@@ -234,28 +234,20 @@ class _MapScreenState extends State<MapScreen>
           pulseIndex: pulseIndex,
           onTap: () async {
             if (isLocked) return;
-            await _openTicketFlow(state: state, level: level);
+            await _openTicketFlow(level: level);
           },
         ),
       );
     });
   }
 
-  Future<void> _openTicketFlow({
-    required GameState state,
-    required int level,
-  }) async {
+  Future<void> _openTicketFlow({required int level}) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => QuizScreen(ticketId: level)),
     );
 
     if (!mounted) return;
-
-    if (result == true) {
-      state.completeLevel(level);
-      return;
-    }
 
     if (result is! Map<String, dynamic>) return;
 
@@ -272,7 +264,7 @@ class _MapScreenState extends State<MapScreen>
     );
 
     if (goToNext && mounted) {
-      await _openTicketFlow(state: state, level: nextTicket);
+      await _openTicketFlow(level: nextTicket);
     }
   }
 

@@ -59,7 +59,9 @@ class _SubquestionScreenState extends State<SubquestionScreen>
 
     questionsQueue = List.from(widget.subquestions);
     currentIndex = widget.startIndex.clamp(
-        0, questionsQueue.isEmpty ? 0 : questionsQueue.length - 1);
+      0,
+      questionsQueue.isEmpty ? 0 : questionsQueue.length - 1,
+    );
 
     _loadCurrentProgress();
 
@@ -68,12 +70,15 @@ class _SubquestionScreenState extends State<SubquestionScreen>
       duration: const Duration(milliseconds: 600),
     );
 
-    progressAnimation = Tween<double>(
-      begin: 0,
-      end: questionsQueue.isEmpty ? 0 : correctAnswers / questionsQueue.length,
-    ).animate(
-      CurvedAnimation(parent: progressController, curve: Curves.easeOut),
-    );
+    progressAnimation =
+        Tween<double>(
+          begin: 0,
+          end: questionsQueue.isEmpty
+              ? 0
+              : correctAnswers / questionsQueue.length,
+        ).animate(
+          CurvedAnimation(parent: progressController, curve: Curves.easeOut),
+        );
 
     explanationController = AnimationController(
       vsync: this,
@@ -82,8 +87,8 @@ class _SubquestionScreenState extends State<SubquestionScreen>
 
     explanationSlide =
         Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
-      CurvedAnimation(parent: explanationController, curve: Curves.easeOut),
-    );
+          CurvedAnimation(parent: explanationController, curve: Curves.easeOut),
+        );
 
     progressController.forward();
   }
@@ -112,12 +117,15 @@ class _SubquestionScreenState extends State<SubquestionScreen>
   }
 
   void _updateProgress() {
-    progressAnimation = Tween<double>(
-      begin: progressAnimation.value,
-      end: questionsQueue.isEmpty ? 0 : correctAnswers / questionsQueue.length,
-    ).animate(
-      CurvedAnimation(parent: progressController, curve: Curves.easeOut),
-    );
+    progressAnimation =
+        Tween<double>(
+          begin: progressAnimation.value,
+          end: questionsQueue.isEmpty
+              ? 0
+              : correctAnswers / questionsQueue.length,
+        ).animate(
+          CurvedAnimation(parent: progressController, curve: Curves.easeOut),
+        );
     progressController.forward(from: 0);
   }
 
@@ -166,7 +174,9 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     if (isCorrect) {
       correctAnswers++;
       attempt = 3; // успешный ответ
-      if (unsolvedQuestions.contains(current)) unsolvedQuestions.remove(current);
+      if (unsolvedQuestions.contains(current)) {
+        unsolvedQuestions.remove(current);
+      }
     } else {
       attempt += 1;
       if (attempt == 2 && !unsolvedQuestions.contains(current)) {
@@ -190,6 +200,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
         'answered': correctAnswers,
         'lastIndex': currentIndex,
         'unsolvedQuestions': unsolvedQuestions,
+        'sessionFinished': true,
       });
       return;
     }
@@ -210,16 +221,19 @@ class _SubquestionScreenState extends State<SubquestionScreen>
     });
   }
 
-  Map<String, dynamic> _getActionButtonConfig(bool isAlreadyAnswered,
-      bool wasPreviousCorrect, int attempt) {
+  Map<String, dynamic> _getActionButtonConfig(
+    bool isAlreadyAnswered,
+    bool wasPreviousCorrect,
+    int attempt,
+  ) {
     final greenColor = _greenButtonColor();
     final greenLineColor = _greenButtonLineColor();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     Color explanationColor = attempt == 1
         ? Colors.yellow.shade700
         : attempt == 2
-            ? const Color(0xFFEE5654)
-            : greenColor;
+        ? const Color(0xFFEE5654)
+        : greenColor;
 
     String text = 'ПРОВЕРИТЬ';
     Color color = greenColor;
@@ -294,14 +308,15 @@ class _SubquestionScreenState extends State<SubquestionScreen>
         ticketProgress?.answeredQuestions.containsKey(currentIndex) ?? false;
     final wasPreviousCorrect =
         ticketProgress?.answeredQuestions[currentIndex] ?? false;
-    final attempt = wrongAttempts[current['subid']] ??
+    final attempt =
+        wrongAttempts[current['subid']] ??
         (isAlreadyAnswered && wasPreviousCorrect ? 3 : 0);
 
     final explanationColor = attempt == 1
         ? Colors.yellow.shade700
         : attempt == 2
-            ? const Color(0xFFEE5654)
-            : _greenButtonColor();
+        ? const Color(0xFFEE5654)
+        : _greenButtonColor();
 
     final showExplanationText = attempt == 2 || attempt == 3;
     String explanationTitle = '';
@@ -311,8 +326,11 @@ class _SubquestionScreenState extends State<SubquestionScreen>
       explanationTitle = 'Объяснение:';
     }
 
-    final btnConfig =
-        _getActionButtonConfig(isAlreadyAnswered, wasPreviousCorrect, attempt);
+    final btnConfig = _getActionButtonConfig(
+      isAlreadyAnswered,
+      wasPreviousCorrect,
+      attempt,
+    );
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -327,6 +345,7 @@ class _SubquestionScreenState extends State<SubquestionScreen>
               'answered': correctAnswers,
               'lastIndex': currentIndex,
               'unsolvedQuestions': unsolvedQuestions,
+              'sessionFinished': false,
             });
           },
         ),
@@ -424,8 +443,8 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                         onTap: isDisabled
                             ? null
                             : (showExplanation && attempt != 1)
-                                ? null
-                                : () => _toggleOption(index, isMultiple),
+                            ? null
+                            : () => _toggleOption(index, isMultiple),
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           padding: const EdgeInsets.all(12),
@@ -470,7 +489,11 @@ class _SubquestionScreenState extends State<SubquestionScreen>
                 child: Container(
                   constraints: BoxConstraints(maxHeight: maxExplanationHeight),
                   padding: EdgeInsets.fromLTRB(
-                      16, 20, 16, actionButtonHeight + actionButtonBottom + 16),
+                    16,
+                    20,
+                    16,
+                    actionButtonHeight + actionButtonBottom + 16,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.surface,
                     borderRadius: const BorderRadius.vertical(
@@ -584,10 +607,8 @@ class _ActionButton extends StatefulWidget {
 class _ActionButtonState extends State<_ActionButton> {
   bool _isPressed = false;
 
-  void _onTapDown(TapDownDetails details) =>
-      setState(() => _isPressed = true);
-  void _onTapUp(TapUpDetails details) =>
-      setState(() => _isPressed = false);
+  void _onTapDown(TapDownDetails details) => setState(() => _isPressed = true);
+  void _onTapUp(TapUpDetails details) => setState(() => _isPressed = false);
   void _onTapCancel() => setState(() => _isPressed = false);
 
   @override
@@ -611,12 +632,7 @@ class _ActionButtonState extends State<_ActionButton> {
             borderRadius: BorderRadius.circular(14),
             border: lineColor == null
                 ? null
-                : Border(
-                    bottom: BorderSide(
-                      color: lineColor,
-                      width: 4,
-                    ),
-                  ),
+                : Border(bottom: BorderSide(color: lineColor, width: 4)),
           ),
           alignment: Alignment.center,
           child: Text(

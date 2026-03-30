@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
 import 'subquestion_screen.dart';
+import 'ticket_stats_screen.dart';
 
 class QuizScreen extends StatefulWidget {
   final int ticketId;
@@ -152,48 +153,83 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
       ),
     );
 
-    if (result != null && result is Map<String, dynamic>) {
-      final int newCorrect = (result['answered'] ?? currentCorrect) as int;
-      final int lastIndex = (result['lastIndex'] ?? currentLastIndex) as int;
-
-      setState(() {
-        correctAnswers = newCorrect;
-        lastSubquestionIndex = lastIndex;
-
-        // Анимация от текущего состояния до нового прогресса
-        _progressAnimation =
-            Tween<double>(
-              begin: _progressAnimation.value,
-              end: correctAnswers / totalSubquestions,
-            ).animate(
-              CurvedAnimation(
-                parent: _progressController,
-                curve: Curves.easeOut,
-              ),
-            );
-
-        _progressController.forward(from: 0);
-
-        // === РАЗБЛОКИРОВКА СЛЕДУЮЩЕГО БИЛЕТА И УРОВНЯ ===
-        // Проверяем, полностью ли завершен текущий билет
-        final bool isTicketCompleted = correctAnswers == totalSubquestions;
-
-        if (isTicketCompleted) {
-          final bool didFinishNow = gameState.finishTicket(
-            subject: subject,
-            ticketNumber: widget.ticketId,
-            totalQuestions: totalSubquestions,
-          );
-
-          if (didFinishNow && mounted) {
-            Navigator.pop(context, {
-              'completedTicket': widget.ticketId,
-              'nextTicket': widget.ticketId + 1,
-            });
-          }
-        }
-      });
+    if (result == null || result is! Map<String, dynamic>) {
+      return;
     }
+
+    final int newCorrect = (result['answered'] ?? currentCorrect) as int;
+    final int lastIndex = (result['lastIndex'] ?? currentLastIndex) as int;
+    final bool sessionFinished = result['sessionFinished'] == true;
+    final List<String> weakQuestions = _extractWeakQuestions(
+      result['unsolvedQuestions'],
+    );
+
+    setState(() {
+      correctAnswers = newCorrect;
+      lastSubquestionIndex = lastIndex;
+      _progressAnimation =
+          Tween<double>(
+            begin: _progressAnimation.value,
+            end: correctAnswers / totalSubquestions,
+          ).animate(
+            CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
+          );
+      _progressController.forward(from: 0);
+    });
+
+    if (!sessionFinished || !mounted) {
+      return;
+    }
+
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TicketStatsScreen(
+          ticketId: widget.ticketId,
+          correctAnswers: correctAnswers,
+          totalQuestions: totalSubquestions,
+          weakQuestions: weakQuestions,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    final bool isTicketCompleted = correctAnswers == totalSubquestions;
+    if (isTicketCompleted) {
+      final bool didFinishNow = gameState.finishTicket(
+        subject: subject,
+        ticketNumber: widget.ticketId,
+        totalQuestions: totalSubquestions,
+      );
+
+      if (didFinishNow && mounted) {
+        Navigator.pop(context, {
+          'completedTicket': widget.ticketId,
+          'nextTicket': widget.ticketId + 1,
+        });
+        return;
+      }
+    }
+
+    Navigator.pop(context, {'sessionFinished': true});
+  }
+
+  List<String> _extractWeakQuestions(dynamic unsolvedRaw) {
+    if (unsolvedRaw is! List) return const [];
+
+    final Set<String> unique = <String>{};
+    for (final item in unsolvedRaw) {
+      if (item is Map) {
+        final question = item['question'];
+        if (question is String && question.trim().isNotEmpty) {
+          unique.add(question.trim());
+        }
+      } else if (item is String && item.trim().isNotEmpty) {
+        unique.add(item.trim());
+      }
+    }
+    return unique.toList();
   }
 
   Widget _buildProgressBar(AppColors colors, Color textColor) {
