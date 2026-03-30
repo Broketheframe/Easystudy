@@ -41,6 +41,13 @@ extension GameStateSettings on GameState {
     }
   }
 
+  set setThemeStyle(AppThemeStyle style) {
+    if (_themeStyle != style) {
+      _themeStyle = style;
+      _saveAndNotify();
+    }
+  }
+
   void switchSubject(Subject subject) {
     if (_currentSubject != subject) {
       _currentSubject = subject;

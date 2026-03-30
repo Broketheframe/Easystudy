@@ -10,6 +10,7 @@ extension GameStateConfig on GameState {
       'vibrationEnabled': _vibrationEnabled,
       'musicVolume': _musicVolume,
       'themeMode': _themeMode.index,
+      'themeStyle': _themeStyle.index,
       'playerLevel': _playerLevel,
       'currentXP': _currentXP,
       'coins': _coins,
@@ -72,6 +73,14 @@ extension GameStateConfig on GameState {
         themeModeIndex >= 0 &&
         themeModeIndex < AppThemeMode.values.length) {
       _themeMode = AppThemeMode.values[themeModeIndex];
+      changed = true;
+    }
+
+    final themeStyleIndex = read<int>('themeStyle');
+    if (themeStyleIndex != null &&
+        themeStyleIndex >= 0 &&
+        themeStyleIndex < AppThemeStyle.values.length) {
+      _themeStyle = AppThemeStyle.values[themeStyleIndex];
       changed = true;
     }
 

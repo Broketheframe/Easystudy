@@ -16,6 +16,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   bool _vibrationEnabled;
   double _musicVolume;
   AppThemeMode _themeMode;
+  AppThemeStyle _themeStyle;
 
   int _playerLevel;
   int _currentXP;
@@ -63,6 +64,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   bool get vibrationEnabled => _vibrationEnabled;
   double get musicVolume => _musicVolume;
   AppThemeMode get themeMode => _themeMode;
+  AppThemeStyle get themeStyle => _themeStyle;
   int get playerLevel => _playerLevel;
   int get currentXP => _currentXP;
   int get coins => _coins;
@@ -111,6 +113,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     bool vibrationEnabled = true,
     double musicVolume = 0.7,
     AppThemeMode themeMode = AppThemeMode.system,
+    AppThemeStyle themeStyle = AppThemeStyle.classic,
     int playerLevel = 1,
     int currentXP = 0,
     int coins = 0,
@@ -133,6 +136,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
        _vibrationEnabled = vibrationEnabled,
        _musicVolume = musicVolume,
        _themeMode = themeMode,
+       _themeStyle = themeStyle,
        _playerLevel = playerLevel,
        _currentXP = currentXP,
        _coins = coins,
@@ -247,6 +251,15 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
           return AppThemeMode.system;
         }
         return AppThemeMode.values[saved];
+      }(),
+      themeStyle: () {
+        final saved = prefs.getInt('themeStyle');
+        if (saved == null ||
+            saved < 0 ||
+            saved >= AppThemeStyle.values.length) {
+          return AppThemeStyle.classic;
+        }
+        return AppThemeStyle.values[saved];
       }(),
       playerLevel: prefs.getInt('playerLevel') ?? 1,
       currentXP: prefs.getInt('currentXP') ?? 0,

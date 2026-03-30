@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import '../data/account_service.dart';
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
@@ -23,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool localVibration;
   late double localVolume;
   late AppThemeMode localThemeMode;
+  late AppThemeStyle localThemeStyle;
 
   @override
   void initState() {
@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     localVibration = state.vibrationEnabled;
     localVolume = state.musicVolume;
     localThemeMode = state.themeMode;
+    localThemeStyle = state.themeStyle;
   }
 
   @override
@@ -110,6 +111,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 24),
               // ================= Тема =================
               _sectionHeader(text: "ТЕМА", colors: colors),
+              const SizedBox(height: 12),
+              _themeStyleSelector(
+                context: context,
+                current: localThemeStyle,
+                colors: colors,
+                onChanged: (style) {
+                  HapticFeedback.lightImpact();
+                  setState(() => localThemeStyle = style);
+                  state.setThemeStyle = style;
+                },
+              ),
+              if (localThemeStyle == AppThemeStyle.pulse) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      setState(() => localThemeStyle = AppThemeStyle.classic);
+                      state.setThemeStyle = AppThemeStyle.classic;
+                    },
+                    icon: const Icon(Icons.undo, size: 16),
+                    label: const Text('Вернуть Classic'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _themeModeSelector(
                 context: context,
@@ -272,7 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: Colors.black.withValues(alpha: 0.15),
                             blurRadius: 3,
                             offset: const Offset(0, 1.5),
                           ),
@@ -346,10 +376,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   static Color _blueButtonTextColor(BuildContext context, Color buttonColor) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = AppColors.of(context);
+    if (colors.isPulse) {
+      return isDark ? const Color(0xFF0D1A2E) : Colors.white;
+    }
+    final argb = buttonColor.toARGB32();
     final isBlue =
-        buttonColor.value == 0xFF49C0F7 ||
-        buttonColor.value == 0xFF29B6F6 ||
-        buttonColor.value == AppTheme.darkAccent.value;
+        argb == 0xFF49C0F7 ||
+        argb == 0xFF29B6F6 ||
+        argb == AppTheme.darkAccent.toARGB32();
     if (isDark && isBlue) {
       return const Color(0xFF102124);
     }
@@ -372,6 +407,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  static Widget _themeStyleSelector({
+    required BuildContext context,
+    required AppThemeStyle current,
+    required AppColors colors,
+    required ValueChanged<AppThemeStyle> onChanged,
+  }) {
+    Widget buildOption(AppThemeStyle style, String label) {
+      final bool isSelected = current == style;
+      final Color selectedText = _blueButtonTextColor(context, colors.accent);
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => onChanged(style),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.accent : colors.surface,
+              borderRadius: BorderRadius.circular(colors.isPulse ? 16 : 10),
+              border: Border.all(color: colors.border),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? selectedText : colors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            buildOption(AppThemeStyle.classic, 'Classic'),
+            const SizedBox(width: 8),
+            buildOption(AppThemeStyle.pulse, 'Pulse Academy'),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          current == AppThemeStyle.pulse
+              ? 'Pulse: мягкий фон, синие акценты и более современная типографика.'
+              : 'Classic: текущий привычный стиль приложения.',
+          style: TextStyle(fontSize: 12, color: colors.textSecondary),
+        ),
+      ],
+    );
+  }
+
   static Widget _themeModeSelector({
     required BuildContext context,
     required AppThemeMode current,
@@ -388,7 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: isSelected ? colors.accent : colors.surface,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(colors.isPulse ? 16 : 10),
               border: Border.all(color: colors.border),
             ),
             alignment: Alignment.center,

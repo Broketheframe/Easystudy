@@ -17,6 +17,7 @@ extension GameStateStorage on GameState {
     await prefs.setBool('vibrationEnabled', _vibrationEnabled);
     await prefs.setDouble('musicVolume', _musicVolume);
     await prefs.setInt('themeMode', _themeMode.index);
+    await prefs.setInt('themeStyle', _themeStyle.index);
     await prefs.setInt('playerLevel', _playerLevel);
     await prefs.setInt('currentXP', _currentXP);
     await prefs.setInt('coins', _coins);

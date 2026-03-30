@@ -36,9 +36,9 @@ class ThemedActionButton extends StatefulWidget {
     this.height,
     this.textStyle,
   }) : assert(
-          variant == ThemedActionButtonVariant.custom || color == null,
-          'Color must be null when using green/blue variant.',
-        );
+         variant == ThemedActionButtonVariant.custom || color == null,
+         'Color must be null when using green/blue variant.',
+       );
 
   const ThemedActionButton.green({
     super.key,
@@ -53,8 +53,8 @@ class ThemedActionButton extends StatefulWidget {
     this.width,
     this.height,
     this.textStyle,
-  })  : variant = ThemedActionButtonVariant.green,
-        color = null;
+  }) : variant = ThemedActionButtonVariant.green,
+       color = null;
 
   const ThemedActionButton.blue({
     super.key,
@@ -69,8 +69,8 @@ class ThemedActionButton extends StatefulWidget {
     this.width,
     this.height,
     this.textStyle,
-  })  : variant = ThemedActionButtonVariant.blue,
-        color = null;
+  }) : variant = ThemedActionButtonVariant.blue,
+       color = null;
 
   @override
   State<ThemedActionButton> createState() => _ThemedActionButtonState();
@@ -97,28 +97,38 @@ class _ThemedActionButtonState extends State<ThemedActionButton> {
     return isDark ? const Color(0xFF729462) : const Color(0xFF6F9A4A);
   }
 
-  Color _blueButtonColor(bool isDark) {
+  Color _blueButtonColor(bool isDark, AppColors colors) {
+    if (colors.isPulse) {
+      return colors.accent;
+    }
     return isDark ? const Color(0xFF4ABFF8) : const Color(0xFF20AFF6);
   }
 
-  Color _blueLineColor() {
+  Color _blueLineColor(AppColors colors) {
+    if (colors.isPulse) {
+      return const Color(0xFF0847A8);
+    }
     return const Color(0xFF2299D4);
   }
 
-  bool _isBlueColor(Color color) {
-    return color.value == 0xFF49C0F7 ||
-        color.value == 0xFF29B6F6 ||
-        color.value == AppTheme.darkAccent.value;
+  bool _isBlueColor(Color color, AppColors colors) {
+    final int colorArgb = color.toARGB32();
+    if (colors.isPulse && colorArgb == colors.accent.toARGB32()) {
+      return true;
+    }
+    return colorArgb == 0xFF49C0F7 ||
+        colorArgb == 0xFF29B6F6 ||
+        colorArgb == AppTheme.darkAccent.toARGB32();
   }
 
-  Color _textColorFor(Color baseColor, bool isDark) {
+  Color _textColorFor(Color baseColor, bool isDark, AppColors colors) {
     if (_isGreen) {
       return isDark ? const Color(0xFF101E27) : Colors.white;
     }
     if (_isBlue) {
       return isDark ? const Color(0xFF102124) : Colors.white;
     }
-    if (isDark && _isBlueColor(baseColor)) {
+    if (isDark && _isBlueColor(baseColor, colors)) {
       return const Color(0xFF102124);
     }
     return Colors.white;
@@ -138,20 +148,19 @@ class _ThemedActionButtonState extends State<ThemedActionButton> {
     final baseColor = _isGreen
         ? _greenButtonColor(isDark)
         : _isBlue
-            ? _blueButtonColor(isDark)
-            : (widget.color ?? colors.accent);
-    final lineColor =
-        _isGreen ? _greenLineColor(isDark) : _blueLineColor();
+        ? _blueButtonColor(isDark, colors)
+        : (widget.color ?? colors.accent);
+    final lineColor = _isGreen
+        ? _greenLineColor(isDark)
+        : _blueLineColor(colors);
     final showLine = _hasVolume && !_isPressed;
     final pressOffset = _hasVolume && _isPressed ? 4.0 : 0.0;
-    final textColor = _textColorFor(baseColor, isDark);
+    final textColor = _textColorFor(baseColor, isDark, colors);
 
-    final labelStyle = (widget.textStyle ??
-            const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ))
-        .copyWith(color: textColor);
+    final labelStyle =
+        (widget.textStyle ??
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))
+            .copyWith(color: textColor);
 
     final label = Text(
       widget.label,
@@ -205,18 +214,10 @@ class _ThemedActionButtonState extends State<ThemedActionButton> {
               color: baseColor,
               borderRadius: BorderRadius.circular(widget.borderRadius),
               border: showLine
-                  ? Border(
-                      bottom: BorderSide(
-                        color: lineColor,
-                        width: 4,
-                      ),
-                    )
+                  ? Border(bottom: BorderSide(color: lineColor, width: 4))
                   : null,
             ),
-            child: Padding(
-              padding: widget.padding,
-              child: content,
-            ),
+            child: Padding(padding: widget.padding, child: content),
           ),
         ),
       ),

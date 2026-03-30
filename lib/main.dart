@@ -38,6 +38,7 @@ class MyApp extends StatelessWidget {
       valueListenable: currentBackground,
       builder: (context, background, _) {
         final gameState = context.watch<GameState>();
+        final bool usePulseTheme = gameState.themeStyle == AppThemeStyle.pulse;
         const Color darkBackground = Color(0xFF121F25);
 
         final ThemeMode mode = () {
@@ -47,15 +48,17 @@ class MyApp extends StatelessWidget {
             case AppThemeMode.dark:
               return ThemeMode.dark;
             case AppThemeMode.system:
-            default:
               return ThemeMode.system;
           }
         }();
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(background: darkBackground),
+          theme: AppTheme.light(usePulse: usePulseTheme),
+          darkTheme: AppTheme.dark(
+            background: darkBackground,
+            usePulse: usePulseTheme,
+          ),
           themeMode: mode,
           initialRoute: showWelcomeScreen ? '/welcome' : '/home',
           routes: {

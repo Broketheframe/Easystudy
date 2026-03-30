@@ -78,6 +78,12 @@ flutter:
     - family: ClashRoyale
       fonts:
         - asset: assets/fonts/Rubik-Medium.ttf
+    - family: Rubik
+      fonts:
+        - asset: assets/fonts/Rubik-Medium.ttf
+    - family: NunitoSans
+      fonts:
+        - asset: assets/fonts/NunitoSans.ttf
   # To add assets to your application, add an assets section, like this:
   assets: 
      - assets/audio/
