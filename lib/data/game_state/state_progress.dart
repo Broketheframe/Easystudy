@@ -1,6 +1,8 @@
 part of '../game_state.dart';
 
 extension GameStateProgress on GameState {
+  static const int xpRewardPerTicket = 50;
+
   // === Разблокировка ===
   void unlockTicket(int ticketNumber) {
     final subjectTickets = _unlockedTickets[_currentSubject];
@@ -54,6 +56,12 @@ extension GameStateProgress on GameState {
       return false;
     }
 
+    // За один билет опыт начисляется только один раз — в момент первого
+    // полного завершения.
+    if (ticket.isCompleted) {
+      return false;
+    }
+
     _ticketsProgress[key] = TicketProgress(
       ticketNumber: ticketNumber,
       subject: subject,
@@ -64,6 +72,7 @@ extension GameStateProgress on GameState {
 
     completeLevel(ticketNumber);
     unlockLevel(ticketNumber + 1);
+    addXP(xpRewardPerTicket);
 
     _saveAndNotify();
     return true;
