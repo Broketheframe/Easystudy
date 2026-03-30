@@ -1,6 +1,6 @@
 {
-    "name": "EasyStudy",
-    "short_name": "EasyStudy",
+    "name": "EZstudy",
+    "short_name": "EZstudy",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -365,7 +365,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         border: Border.all(color: colors.border),
       ),
       child: Text(
-        'EasyStudy v1.0.0',
+        'EZstudy v1.0.0',
         style: TextStyle(fontSize: 11, color: colors.textSecondary),
         textAlign: TextAlign.center,
       ),

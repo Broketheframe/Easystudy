@@ -30,7 +30,7 @@ JWT_TTL_MIN = int(os.getenv("JWT_TTL_MIN", "43200"))  # 30 days
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-app = FastAPI(title="EasyStudy Account Backend")
+app = FastAPI(title="EZstudy Account Backend")
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,4 +1,4 @@
-# EasyStudy Backend (FastAPI)
+# EZstudy Backend (FastAPI)
 
 Minimal file-based account backend that stores each user's config as a JSON file.
 
