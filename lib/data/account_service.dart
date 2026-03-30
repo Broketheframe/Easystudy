@@ -120,6 +120,108 @@ class AccountService {
       'version': 1,
     }, SetOptions(merge: true));
   }
+
+  Future<GlobalTicketStats> fetchGlobalTicketStats({
+    required String currentUserId,
+  }) async {
+    final snapshot = await _firestore.collection(_usersCollection).get();
+
+    final Map<int, int> completedByTicket = <int, int>{};
+    final List<int> completedTicketsPerUser = <int>[];
+    int usersCount = 0;
+    int totalCompletedTickets = 0;
+    int totalPerfectTickets = 0;
+
+    for (final doc in snapshot.docs) {
+      if (doc.id == currentUserId) continue;
+
+      final data = doc.data();
+      final config = data['config'];
+      if (config is! Map<String, dynamic>) continue;
+
+      usersCount++;
+
+      final ticketList = config['ticketsProgress'];
+      if (ticketList is! List) {
+        completedTicketsPerUser.add(0);
+        continue;
+      }
+
+      final Set<int> completedTicketsForUser = <int>{};
+      final Set<int> perfectTicketsForUser = <int>{};
+
+      for (final raw in ticketList) {
+        if (raw is! String) continue;
+
+        final parsed = _parseTicketProgress(raw);
+        if (parsed == null) continue;
+        if (!parsed.isChemistry || !parsed.isCompleted) continue;
+
+        completedTicketsForUser.add(parsed.ticketNumber);
+        if (parsed.isPerfect) {
+          perfectTicketsForUser.add(parsed.ticketNumber);
+        }
+      }
+
+      for (final ticketNumber in completedTicketsForUser) {
+        completedByTicket.update(
+          ticketNumber,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+      }
+
+      completedTicketsPerUser.add(completedTicketsForUser.length);
+      totalCompletedTickets += completedTicketsForUser.length;
+      totalPerfectTickets += perfectTicketsForUser.length;
+    }
+
+    return GlobalTicketStats(
+      usersCount: usersCount,
+      totalCompletedTickets: totalCompletedTickets,
+      totalPerfectTickets: totalPerfectTickets,
+      completedTicketsPerUser: completedTicketsPerUser,
+      completedByTicket: completedByTicket,
+    );
+  }
+
+  _ParsedTicketProgress? _parseTicketProgress(String serialized) {
+    final parts = serialized.split('|');
+    if (parts.length < 5) return null;
+
+    final subjectIndex = int.tryParse(parts[0]);
+    final ticketNumber = int.tryParse(parts[1]);
+    final isCompleted = parts[3] == 'true';
+
+    if (subjectIndex == null || ticketNumber == null) return null;
+
+    bool isPerfect = false;
+    final answersRaw = parts[4];
+    if (answersRaw.isNotEmpty) {
+      final answers = answersRaw.split(',');
+      if (answers.isNotEmpty) {
+        isPerfect = true;
+        for (final answer in answers) {
+          final kv = answer.split(':');
+          if (kv.length != 2) {
+            isPerfect = false;
+            break;
+          }
+          if (kv[1] != '1') {
+            isPerfect = false;
+            break;
+          }
+        }
+      }
+    }
+
+    return _ParsedTicketProgress(
+      ticketNumber: ticketNumber,
+      isCompleted: isCompleted,
+      isChemistry: subjectIndex == Subject.chemistry.index,
+      isPerfect: isCompleted && isPerfect,
+    );
+  }
 }
 
 class AuthResult {
@@ -135,4 +237,37 @@ class AuthRequiredException implements Exception {
 
 class EmailNotVerifiedException implements Exception {
   const EmailNotVerifiedException();
+}
+
+class GlobalTicketStats {
+  const GlobalTicketStats({
+    required this.usersCount,
+    required this.totalCompletedTickets,
+    required this.totalPerfectTickets,
+    required this.completedTicketsPerUser,
+    required this.completedByTicket,
+  });
+
+  final int usersCount;
+  final int totalCompletedTickets;
+  final int totalPerfectTickets;
+  final List<int> completedTicketsPerUser;
+  final Map<int, int> completedByTicket;
+
+  double get averageCompletedTickets =>
+      usersCount == 0 ? 0 : totalCompletedTickets / usersCount;
+}
+
+class _ParsedTicketProgress {
+  const _ParsedTicketProgress({
+    required this.ticketNumber,
+    required this.isCompleted,
+    required this.isChemistry,
+    required this.isPerfect,
+  });
+
+  final int ticketNumber;
+  final bool isCompleted;
+  final bool isChemistry;
+  final bool isPerfect;
 }

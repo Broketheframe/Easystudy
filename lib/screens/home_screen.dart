@@ -6,6 +6,7 @@ import '../audio/audio_manager.dart';
 import '../data/game_state.dart';
 import '../theme/app_theme.dart';
 import 'achievements_screen.dart';
+import 'global_stats_screen.dart';
 import 'map_screen.dart';
 import 'shop_screen.dart';
 
@@ -22,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
      ======================= */
 
   static const int _initialPage = 1;
-  static const int _pageCount = 3;
+  static const int _pageCount = 4;
 
   /* =======================
      STATE
@@ -57,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToPage(int index) {
+    if (index < 0 || index >= _pageCount) return;
     if (index == _currentPage) return;
 
     _pageController.animateToPage(
@@ -92,7 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: PageView(
           controller: _pageController,
           onPageChanged: _onPageChanged,
-          children: const [ShopScreen(), MapScreen(), AchievementsScreen()],
+          children: const [
+            ShopScreen(),
+            MapScreen(),
+            AchievementsScreen(),
+            GlobalStatsScreen(),
+          ],
         ),
       ),
       bottomNavigationBar: _BottomNavigationBar(
@@ -117,6 +124,7 @@ class _BottomNavigationBar extends StatelessWidget {
     'assets/images/icons/icon_shop.png',
     'assets/images/icons/icon_map.png',
     'assets/images/icons/icon_achievements.png',
+    'assets/images/icons/icon_profile.png',
   ];
 
   @override
@@ -129,7 +137,7 @@ class _BottomNavigationBar extends StatelessWidget {
         border: Border(top: BorderSide(color: colors.track, width: 1.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             offset: const Offset(0, -2),
             blurRadius: 6,
           ),
