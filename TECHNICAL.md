@@ -1,19 +1,24 @@
-# Техническая (технологическая) документация EasyStudy
+# Техническая документация EasyStudy
 
-Дата: 2026-02-04
+Дата актуализации: 2026-04-07
 
-## 1. Назначение документа
-Этот документ описывает технические аспекты кода и инфраструктуры EasyStudy: сборка, запуск, зависимости, структура модулей, ключевые классы и форматы данных.
+## 1. Назначение
+Документ описывает текущее техническое состояние приложения: зависимости, запуск, архитектурные компоненты, хранение данных и ограничения.
 
-## 2. Требования и окружение
-- Flutter SDK (актуальная стабильная версия).
-- Dart SDK (идет с Flutter).
-- Android Studio / Xcode (для мобильных платформ).
-- Python 3.10+ (для backend сервиса).
+## 2. Технологический стек
+- Flutter / Dart (`sdk: ^3.9.2`)
+- State management: `provider`
+- Локальное хранилище: `shared_preferences`
+- Аутентификация и облачное хранилище: `firebase_auth`, `cloud_firestore`, `firebase_core`
+- Аудио: `audioplayers`
+- Дополнительно: `vibration`, `http`, `shimmer`
 
-## 3. Сборка и запуск
+## 3. Текущее состояние инфраструктуры
+- Основной продакшн-поток синхронизации в клиенте реализован через Firebase.
+- В репозитории остается legacy FastAPI backend (`backend/*`) и legacy клиент `lib/data/backend_client.dart`.
+- Legacy backend не используется текущим UI-потоком аккаунта и синхронизации.
 
-### 3.1 Клиент (Flutter)
+## 4. Сборка и запуск клиента
 ```bash
 flutter pub get
 flutter run
@@ -23,141 +28,109 @@ flutter run
 ```bash
 flutter build apk
 flutter build ios
+flutter build web
+flutter build macos
+flutter build windows
 ```
 
-### 3.2 Backend (FastAPI)
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app:app --reload --port 8000
-```
+Примечание по платформам:
+- `DefaultFirebaseOptions` настроен для Android, iOS, Web, macOS, Windows.
+- Для Linux сейчас выбрасывается `UnsupportedError`.
 
-## 4. Конфигурация
+## 5. Точка входа и инициализация
+`lib/main.dart`:
+1. `WidgetsFlutterBinding.ensureInitialized()`
+2. `Firebase.initializeApp(...)`
+3. `GameState.load()`
+4. `GameState.isFirstLaunch()`
+5. `AccountSyncService(state: gameState).start()`
+6. Запуск `MaterialApp` с `Provider<GameState>`
 
-### 4.1 Backend URL
-Клиент ожидает переменную окружения:
-- `BACKEND_URL` — базовый адрес API.
-По умолчанию: `http://10.0.2.2:8000`.
+Маршруты:
+- `/welcome` -> `WelcomeScreen`
+- `/home` -> `HomeScreen`
+- `/map` -> `MapScreen`
 
-### 4.2 Backend переменные
-- `JWT_SECRET` (обязательно для prod)
-- `JWT_TTL_MIN` (по умолчанию `43200`)
-- `CORS_ORIGINS` (по умолчанию `*`)
+## 6. Управление состоянием (`GameState`)
+`GameState` разнесен по `part`-файлам:
+- `state_core.dart` - основные поля, загрузка, жизненный цикл.
+- `state_storage.dart` - запись в `SharedPreferences`.
+- `state_settings.dart` - настройки (звук/музыка/вибрация/тема/предмет).
+- `state_tickets.dart` - ответы и прогресс билетов.
+- `state_progress.dart` - XP/монеты/разблокировка.
+- `state_shop.dart` - покупки и выбор предметов кастомизации.
+- `state_config.dart` - экспорт/импорт облачного конфига.
+- `state_reset.dart` - сброс прогресса.
 
-## 5. Структура проекта
-```
-lib/
-  main.dart
-  data/
-    game_state.dart
-    account_service.dart
-    backend_client.dart
-  audio/
-    audio_manager.dart
-  screens/
-    home_screen.dart
-    welcome_screen.dart
-    map_screen.dart
-    quiz_screen.dart
-    subquestion_screen.dart
-    shop_screen.dart
-    achievements_screen.dart
-    settings_screen.dart
-  widgets/
-    top_hud.dart
-    settings_panel.dart
-  theme/
-    app_theme.dart
-assets/
-  questions/
-    software_engineering.json
-backend/
-  app.py
-  data/
-  requirements.txt
-```
+Ключевые особенности:
+- Автосохранение: debounce `2s` + периодическое сохранение `5m`.
+- Трекинг времени игры: `_totalPlaySeconds` с фиксацией при lifecycle-событиях.
+- XP за завершение билета: `50`.
+- Порог уровня: `150 XP`.
+- Награда монетами за уровень: `(((level - 1) ~/ 5) + 1) * 100`.
 
-## 6. Ключевые модули и классы
+## 7. Формат прогресса билетов
+`TicketProgress.serialize()` сохраняет строку формата:
+`subjectIndex|ticketNumber|lastAnsweredIndex|isCompleted|q1:v1,q2:v2,...`
 
-### 6.1 `GameState` (`lib/data/game_state.dart`)
-Единый источник состояния:
-- Пользователь: `nickname`, `playerLevel`, `currentXP`, `coins`.
-- Настройки: `soundEnabled`, `musicEnabled`, `vibrationEnabled`, `musicVolume`, `themeMode`.
-- Прогресс: `currentSubject`, `currentLevels`, `completedLevels`, `unlockedTickets`.
-- Билеты: `ticketsProgress` (карта `TicketProgress`).
-- Магазин: `ownedBackgrounds`, `ownedFrames`, `ownedAvatars`.
-- Достижения: `collectedAchievements`.
+Где `v`:
+- `1` -> правильный ответ
+- `0` -> неправильный ответ
 
-Сериализация:
-- `TicketProgress.serialize()` / `deserialize()` — компактная строка.
-- `GameState.toConfigMap()` — JSON-слепок для sync.
-- `GameState.applyConfigMap()` — применяет серверный слепок.
+## 8. Аккаунт и синхронизация
+### 8.1 `AccountService`
+- `register(...)`: создает Firebase-пользователя, отправляет verification email, сохраняет конфиг в Firestore, выполняет sign out.
+- `login(...)`: вход + проверка `emailVerified`; при наличии удаленного конфига применяет его в `GameState`.
+- `syncUp(...)`: выгрузка локального конфига.
+- `syncDown(...)`: загрузка удаленного конфига.
+- `fetchGlobalTicketStats(...)`: собирает агрегаты по другим аккаунтам.
 
-### 6.2 `AccountService` (`lib/data/account_service.dart`)
-Логика аккаунтов и синхронизации:
-- `register`, `login`, `syncUp`, `syncDown`.
-- Хранит токен и email в `SharedPreferences`.
+Firestore модель:
+- Коллекция: `users`
+- Документ: `{uid}`
+- Поля: `config`, `updatedAt`, `version`
 
-### 6.3 `BackendClient` (`lib/data/backend_client.dart`)
-HTTP клиент:
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /config`
-- `PUT /config`
+### 8.2 `AccountSyncService`
+- Подписывается на `authStateChanges`.
+- Ставит состояние в dirty при изменениях `GameState`.
+- Выполняет:
+  - debounce-синхронизацию (`2s`),
+  - периодическую синхронизацию (`5m`),
+  - синхронизацию при уходе приложения в фон.
+- При новой сессии пользователя: сначала `syncDown`, если удаленного конфига нет -> `syncUp`.
 
-### 6.4 `AudioManager` (`lib/audio/audio_manager.dart`)
-Singleton:
-- Фоновая музыка (loop).
-- Звуки: `tap`, `correct`, `wrong`, `win`, `level_up`.
-- Методы: `setMusicEnabled`, `setSoundEnabled`, `setMusicVolume`.
+## 9. UI и пользовательские потоки
+`HomeScreen` содержит `PageView` из 4 экранов:
+1. `ShopScreen`
+2. `MapScreen`
+3. `AchievementsScreen`
+4. `GlobalStatsScreen`
 
-## 7. Экраны и навигация
+Ключевые экраны:
+- `MapScreen`: карта из 25 уровней/билетов, запуск `QuizScreen`.
+- `QuizScreen`: описание билета, теория, прогресс, переход в `SubquestionScreen`.
+- `SubquestionScreen`: прохождение подвопросов с объяснениями и повторными попытками.
+- `TicketStatsScreen`: итог по билету и список слабых мест.
+- `SettingsScreen`: настройки темы/аудио и управление аккаунтом.
 
-Маршруты в `main.dart`:
-- `/welcome` → `WelcomeScreen`
-- `/home` → `HomeScreen`
-- `/map` → `MapScreen`
+## 10. Контент
+- Источник вопросов: `assets/questions/software_engineering.json`.
+- В модели есть 3 предмета (`chemistry`, `math`, `history`), но текущий UI и статистика привязаны к одному фактическому набору контента.
 
-Основные экраны:
-- `MapScreen` — карта уровней, выбор билета.
-- `QuizScreen` — прогресс и вход в вопросы.
-- `SubquestionScreen` — поэтапные вопросы.
-- `ShopScreen`, `AchievementsScreen`, `SettingsScreen`.
+## 11. Аудио
+`AudioManager` (singleton):
+- Фоновая музыка (loop) из `assets/audio/background_music.mp3`.
+- Эффекты: `tap`, `swipe`.
+- Управление через `setMusicEnabled`, `setSoundEnabled`, `setMusicVolume`, `setSoundVolume`.
 
-Навигация: стандартный `Navigator` + `MaterialPageRoute`.
-
-## 8. Хранение данных
-
-### 8.1 Локальное
-Используется `SharedPreferences`:
-- Настройки и прогресс сохраняются по ключам в `GameState`.
-- Сериализация прогресса билетов: строковые записи.
-
-### 8.2 Серверное
-Backend хранит JSON-конфиги:
-- `backend/data/users.json`
-- `backend/data/configs/<user_id>.json`
-
-## 9. Формат данных вопросов
-`assets/questions/software_engineering.json`
-- `tickets`: список билетов
-- `ticket.id`: номер
-- `ticket.subquestions`: список вопросов
-
-## 10. Сборка UI-тем
+## 12. Тема
 `lib/theme/app_theme.dart`:
-- Светлая/темная темы
-- Связана с `GameState.themeMode`
+- Два стиля: `classic` и `pulse`.
+- Режимы: `system`, `light`, `dark`.
+- Цвета инкапсулированы в `ThemeExtension<AppColors>`.
 
-## 11. Тестирование
-В репозитории нет автоматизированных тестов.
-Рекомендуется добавить:
-- unit-тесты для `GameState` (сериализация, прогресс).
-- widget-тесты для основных экранов.
-
-## 12. Известные ограничения
-- Backend file-based, без масштабирования.
-- Отсутствует стратегия разрешения конфликтов при sync.
-- Единый JSON с вопросами без разделения по предметам.
+## 13. Ограничения и технический долг
+- Конфликты между локальными и облачными изменениями явно не разрешаются (последняя запись побеждает).
+- В `lib/data` остается неиспользуемый legacy `BackendClient`.
+- Linux-платформа не настроена в `firebase_options.dart`.
+- Автотесты в репозитории отсутствуют.
